@@ -11,6 +11,7 @@ int Shell_Variable(char **s);
 
 #define MAX_ARGS 255
 
+//struct to set name of variable and assign an index to it, index is not used but may come in handy later
 struct vars 
 {
     char variable[200];
@@ -51,6 +52,7 @@ int Shell_Variable(char **s)
     struct vars shell;
     struct vars terminal;
 
+    //index is assigned along with name using strcpy
     path.var_index = "1";
     strcpy(path.variable, "PATH");
     home.var_index = "2";
@@ -64,16 +66,19 @@ int Shell_Variable(char **s)
     terminal.var_index = "6";
     strcpy(terminal.variable, "TERMINAL");
 
+    //functionality is implemented
     if (strcmp(*s, path.variable)==0)
     {
         printf("PATH: %s\n", getenv("PATH"));
         return path.var_index;
     }
+    
     else if(strcmp(*s, home.variable)==0)
     {
         printf("HOME: %s\n", getenv("HOME"));
         return home.var_index;
     }
+    
     else if(strcmp(*s, cwd.variable)==0)
     {
         char cwd_[PATH_MAX];
@@ -88,11 +93,13 @@ int Shell_Variable(char **s)
              perror("Error obtaining current working directory.");
         }
     }
+    
     else if(strcmp(*s, user.variable)==0)
     {
         printf("USERNAME: %s\n", getenv("USER"));
         return user.var_index;
     }
+    
     else if(strcmp(*s, shell.variable)==0)
     {
         char resolved_path[PATH_MAX];
@@ -112,6 +119,7 @@ int Shell_Variable(char **s)
             free(path);
         }   
     }
+    
     else if(strcmp(*s, terminal.variable)==0)
     {
         char *tty;
@@ -122,5 +130,11 @@ int Shell_Variable(char **s)
             printf("TERMINAL: %s\n", tty);
             return terminal.var_index;
         }
+    }
+    
+    //only used to exit program
+    else if(strcmp(*s, "exit")==0)
+    {
+        exit(1);
     }
 }
