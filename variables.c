@@ -11,6 +11,7 @@ int Shell_Variable(char **s);
 
 #define MAX_ARGS 255
 
+//used to create shell variable name and assign an index for it
 struct vars 
 {
     char variable[200];
@@ -41,6 +42,7 @@ int main(void)
    return(0);
 }
 
+//possible shell variables that can be called
 int Shell_Variable(char **s)
 {
 
@@ -51,6 +53,7 @@ int Shell_Variable(char **s)
     struct vars shell;
     struct vars terminal;
 
+    //index is assigned and name is set using strcpy
     path.var_index = "1";
     strcpy(path.variable, "PATH");
     home.var_index = "2";
@@ -64,6 +67,7 @@ int Shell_Variable(char **s)
     terminal.var_index = "6";
     strcpy(terminal.variable, "TERMINAL");
 
+    //code for functionality of variables
     if (strcmp(*s, path.variable)==0)
     {
         printf("PATH: %s\n", getenv("PATH"));
@@ -122,5 +126,10 @@ int Shell_Variable(char **s)
             printf("TERMINAL: %s\n", tty);
             return terminal.var_index;
         }
+    }
+    //used to exit program
+    else if (strcmp(*s, "exit")==0)
+    {
+        exit(1);
     }
 }
