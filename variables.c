@@ -8,36 +8,51 @@
 #include "linenoise.h"
 
 int Shell_Variable(char **s);
+char* substring(const char *source, int first_char, int last_char);
 
 #define MAX_ARGS 255
 
-//struct to set name of variable and assign an index to it, index is not used but may come in handy later
 struct vars 
 {
     char variable[200];
     int var_index;
 };
 
-int main(void)
+int main(int argc, char** argv)
 {
 
    char *line, *token = NULL, *args[MAX_ARGS];
    int tokenIndex;
+   //char *token2 = *args[MAX_ARGS];
 
-    while ((line = linenoise("$ ")) != NULL)
+    while ((line = linenoise("eggshell-1.0> ")) != NULL)
     {
-      token = strtok(line, " "); 
+        if(strstr(line, "echo") != NULL && strstr(line, "$") != NULL)
+        {
+            printf("Line contains echo.\n");
+            printf("%s\n", line);
+            printf("%zu\n", strlen(line));
+            char* substr = substring(line, 6, strlen(line));
 
-      while(token != NULL)
-      {
-        //printf("%s\n", token); //checking that the term entered by user is being extracted
-      
-        Shell_Variable(&token);
-         
-        token = strtok(NULL, " ");
-      }
+            token = strtok(line, " "); 
+            //token2 = strtok(NULL, " ");
+            
+            printf("sub-string: %s\n", substr);
+            //printf("%s\n", token);
 
-      linenoiseFree(line);
+            //printf("Token 1: %s\n", token); //checking that the term entered by user is being extracted
+            Shell_Variable(&substr);
+            token = strtok(NULL, " ");
+            //printf("Token 2: %s\n", token);
+        }
+        else
+        {
+            //printf("Line does not contain echo.\n");
+            token = strtok(NULL, " ");
+            //printf("%s", token);
+        }
+
+        linenoiseFree(line);
     }
    return(0);
 }
@@ -52,7 +67,6 @@ int Shell_Variable(char **s)
     struct vars shell;
     struct vars terminal;
 
-    //index is assigned along with name using strcpy
     path.var_index = "1";
     strcpy(path.variable, "PATH");
     home.var_index = "2";
@@ -66,19 +80,16 @@ int Shell_Variable(char **s)
     terminal.var_index = "6";
     strcpy(terminal.variable, "TERMINAL");
 
-    //functionality is implemented
     if (strcmp(*s, path.variable)==0)
     {
         printf("PATH: %s\n", getenv("PATH"));
         return path.var_index;
     }
-    
     else if(strcmp(*s, home.variable)==0)
     {
         printf("HOME: %s\n", getenv("HOME"));
         return home.var_index;
     }
-    
     else if(strcmp(*s, cwd.variable)==0)
     {
         char cwd_[PATH_MAX];
@@ -93,33 +104,20 @@ int Shell_Variable(char **s)
              perror("Error obtaining current working directory.");
         }
     }
-    
     else if(strcmp(*s, user.variable)==0)
     {
         printf("USERNAME: %s\n", getenv("USER"));
         return user.var_index;
     }
-    
     else if(strcmp(*s, shell.variable)==0)
     {
-        char resolved_path[PATH_MAX];
-        realpath("../../", resolved_path);
+       char buf[1024];
+       ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf)-1);
+       buf[len] = '\0';
 
-        char filename[] = "variables.c";
-        char* path = realpath(filename, NULL);
-
-        if(path == NULL)
-        {
-            printf("cannot find file with name[%s]\n", filename);
-        } 
-        else
-        {
-            printf("SHELL: %s\n", path);
-            return shell.var_index;
-            free(path);
-        }   
+       printf("SHELL: %s", buf);
+       return shell.var_index;
     }
-    
     else if(strcmp(*s, terminal.variable)==0)
     {
         char *tty;
@@ -131,10 +129,20 @@ int Shell_Variable(char **s)
             return terminal.var_index;
         }
     }
-    
-    //only used to exit program
-    else if(strcmp(*s, "exit")==0)
+    else if (strcmp(*s, "exit") == 0)
     {
         exit(1);
     }
+}
+ 
+
+char* substring(const char *source, int first_char, int last_char)
+{
+    int length = last_char - first_char; // gets the length of the string, when using func i think use size of string to get last char or something, ended up using strlen
+
+    char *dest = (char*)malloc(sizeof(char) * (length + 1)); // allocates enough mem for string and adding mem for null char
+
+    strncpy(dest, (source + first_char), length);
+
+    return dest;
 }
