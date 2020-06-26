@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 #include "linenoise.h"
 
+//functions
 void varInitializer();
 void outputShellVar(char line[]);
 char **string_to_array(char *input);
@@ -15,9 +16,11 @@ char* Shell_Variable(char s[]);
 int indexOfWord(char string[], char findWord[]);
 char* substring(const char *source, int first_char, int last_char);
 char *replaceWord(const char *s, const char *oldW, const char *newW);
+void print_var(char line[], const char needle[], char shellVar[], int first_char);
 
 #define MAX_ARGS 255
 
+//was going to use this struct to give shell variables an index
 struct vars 
 {
     char variable[200];
@@ -26,8 +29,8 @@ struct vars
 int main(int argc, char** argv)
 {
 
-    char *line, *token = NULL, *args[MAX_ARGS];
-    int tokenIndex;
+    char *line;
+    char *args[MAX_ARGS];
 
     varInitializer();
 
@@ -72,6 +75,7 @@ int main(int argc, char** argv)
                 outputShellVar(line);
             }
         }
+        //used to set a variable, did not work as intended
         else if (strstr(line, "=") != NULL)
         {
             const char deli[] = "=";
@@ -84,10 +88,12 @@ int main(int argc, char** argv)
 
             setenv(token3, token4, 1);
         }
+        //exits out of program
         else if (strcmp(line, "exit") == 0)
         {
             exit(0);
         }
+        prints shell variables
         else if (strcmp(line, "showenv") == 0)
         {
             printf("PATH=%s\n", Shell_Variable("PATH"));
@@ -98,16 +104,19 @@ int main(int argc, char** argv)
             printf("CWD=%s\n", Shell_Variable("CWD"));
             printf("TERMINAL=%s\n", Shell_Variable("TERMINAL"));
         }
+        //changes directory
         else if (strcmp(line, "cd..") == 0)
         {
             chdir("..");
         }
+        //checks if cd is present in string then takes substring after it and sets it as new directory
         else if (cd != NULL)
         {
             char* substr = substring(line, 3, strlen(line)); //should take what comes after cd
             if(chdir(substr) != 0)
                 perror("Unable to chnage directory");
         }
+        //sets the prompts line
         else if (prompt != NULL)
         {
             int beginningOfWord = indexOfWord(line, needle_prompt);
@@ -115,6 +124,7 @@ int main(int argc, char** argv)
             char* substr_prompt_input = substring(substr_prompt_till_end, 7, strlen(substr_prompt_till_end));
             setenv("PROMPT", substr_prompt_input, 0);
         }
+        //non-working pipe operator
         else if (pipe_cmd != NULL)
         {
             const char deli[] = "|";
@@ -142,6 +152,7 @@ int main(int argc, char** argv)
                 execvp(command3[0], command3);
             }
         }
+        //as eg. ls -a would be a stand alone command then it was set as the else in this statement, external commands can be processed here
         else
         {
             command = string_to_array(line);
@@ -165,6 +176,7 @@ int main(int argc, char** argv)
    return(0);
 }
 
+//function to get shell variables
 char* Shell_Variable(char s[])
 {
 
@@ -212,11 +224,9 @@ char* Shell_Variable(char s[])
     else if(strcmp(s, shell.variable)==0)
     {
        char* buf = (char*)malloc(sizeof(char)*(2025)); //since it was returning an address before using malloc i used malloc to allocate mem just for this, then i freed it ofc
-       //ssize_t len = readlink("/proc/self/exe", &buf, sizeof(buf)-1);
        ssize_t len = readlink("/proc/self/exe", buf, 2024); //whilst debugging i found that line 204 would only allocate 7 bytes so i manually set it to 2024 just in case here
        buf[len] = '\0';
        free(buf);
-       //printf("SHELL: %s", buf);
        setenv("SHELL", buf, 1);
        return getenv("SHELL");
     }
@@ -227,7 +237,6 @@ char* Shell_Variable(char s[])
 
         if(tty != NULL)
         {
-            //printf("TERMINAL: %s\n", tty);
             return tty;
         }
     }
@@ -241,6 +250,7 @@ char* Shell_Variable(char s[])
     }
 }
 
+//mainly used to find a word in a given string
 char* substring(const char *source, int first_char, int last_char)
 {
     int length = last_char - first_char; // gets the length of the string, when using func i think use size of string to get last char or something, ended up using strlen
@@ -252,6 +262,7 @@ char* substring(const char *source, int first_char, int last_char)
     return dest;
 }
 
+//used to replace words
 char *replaceWord(const char *s, const char *oldW, const char *newW)
 {
     char *result;
@@ -295,6 +306,7 @@ char *replaceWord(const char *s, const char *oldW, const char *newW)
     return result;
 }
 
+//initializes shell variables using the function Shell_Variable
 void varInitializer()
 {
     setenv("PROMPT", "eggshell-1.0> ", 1);
@@ -306,6 +318,7 @@ void varInitializer()
     setenv("TERMINAL", Shell_Variable("TERMINAL"), 1);
 }
 
+//was used to find the position of the first character in a given word
 int indexOfWord(char line[], char wordSearch[])
 {
     int i, j, flag;
@@ -341,6 +354,7 @@ int indexOfWord(char line[], char wordSearch[])
     }
 }
 
+//used to convert the input from linenoise into array so that it can be used in execvp
 char **string_to_array(char *line)
 {
     char **command = malloc(8 * sizeof(char *));
@@ -361,9 +375,11 @@ char **string_to_array(char *line)
     return command;
 }
 
+//used to print shell variables
 void outputShellVar(char line[])
 {
-    const char needle_user[100] = "$USER"; //i used needle cos of the finding needle in haystack thing
+    //the word needle was used as I kept the convention of finding the needle in the hay stack
+    const char needle_user[100] = "$USER"; 
     const char needle_home[100] = "$HOME";
     const char needle_cwd[100] = "$CWD";
     const char needle_shell[100] = "$SHELL";
@@ -387,49 +403,35 @@ void outputShellVar(char line[])
 
     if(user != NULL)
     {
-        char* substr = substring(line, 5, strlen(line));
-        result = replaceWord(substr, needle_user, Shell_Variable("USER"));   
-        printf("%s\n", result);
+        print_var(line, needle_user, "USER", 5);
     }
     else if (home != NULL)
     {
-        char* substr = substring(line, 5, strlen(line));
-        result = replaceWord(substr, needle_home, Shell_Variable("HOME"));
-        printf("%s\n", result);
+        print_var(line, needle_home, "HOME", 5);
     }
     else if (cwd != NULL)
     {
-        char* substr = substring(line, 5, strlen(line));
-        result = replaceWord(substr, needle_cwd, Shell_Variable("CWD"));
-        printf("%s\n", result);
+        print_var(line, needle_cwd, "CWD", 5);
     }
     else if (shell != NULL)
-    {   
-        char* substr = substring(line, 5, strlen(line));
-        result = replaceWord(substr, needle_shell, Shell_Variable("SHELL"));
-        printf("%s\n", result);
+    {
+        print_var(line, needle_shell, "SHELL", 5);
     }
     else if (terminal != NULL)
     {
-        char* substr = substring(line, 5, strlen(line));
-        result = replaceWord(substr, needle_ter, Shell_Variable("TERMINAL"));
-        printf("%s\n", result);
+        print_var(line, needle_ter, "TERMINAL", 5);
     }
     else if (path != NULL)
     {
-        char* substr = substring(line, 5, strlen(line));
-        result = replaceWord(substr, needle_path, Shell_Variable("PATH"));
-        printf("%s\n", result);
+        print_var(line, needle_path, "PATH", 5);
     }
     else if (dollar != NULL)
     {
-        char* substr = substring(line, 6, strlen(line));
-        printf("%s\n", substr);
-        result = replaceWord(substr, needle_dollar, getenv(substr));
-        printf("%s\n", result);
+        print_var(line, needle_home, "HOME", 5);
     }
     else if (prompt != NULL && dollar != NULL)
     {
+        //tried to print prompt, however my logic seems to be incorrect here
         char* substr = substring(line, 5, strlen(line));
         printf("substr = %s\n", substr);
         result = replaceWord(substr, needle_prompt, Shell_Variable("PROMPT"));
@@ -449,5 +451,12 @@ void outputShellVar(char line[])
     //my program is not able to create its own shell variables
 }
 
-
-
+//refactored code so as to not copy and paste same thing multiple times
+//this code is used to replace eg. $USER with the actual username
+void print_var(char line[], const char needle[], char shellVar[], int first_char)
+{
+    char* result = NULL;
+    char* substr = substring(line, first_char, strlen(line));
+    result = replaceWord(substr, needle, Shell_Variable(shellVar));
+    printf("%s\n", result);
+}
