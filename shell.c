@@ -87,13 +87,14 @@ int main(int argc, char** argv)
             //printf("String after equal sign: %s\n", token4);
 
             setenv(token3, token4, 1);
+            //putenv(line);
         }
         //exits out of program
         else if (strcmp(line, "exit") == 0)
         {
             exit(0);
         }
-        prints shell variables
+        //prints shell variables
         else if (strcmp(line, "showenv") == 0)
         {
             printf("PATH=%s\n", Shell_Variable("PATH"));
@@ -425,30 +426,42 @@ void outputShellVar(char line[])
     {
         print_var(line, needle_path, "PATH", 5);
     }
-    else if (dollar != NULL)
+    /*else if (dollar != NULL)
     {
         print_var(line, needle_home, "HOME", 5);
-    }
+    }*/
     else if (prompt != NULL && dollar != NULL)
     {
         //tried to print prompt, however my logic seems to be incorrect here
         char* substr = substring(line, 5, strlen(line));
-        printf("substr = %s\n", substr);
+        //printf("substr = %s\n", substr);
         result = replaceWord(substr, needle_prompt, Shell_Variable("PROMPT"));
-        printf("result: %s\n", result); 
+        //printf("result: %s\n", result); 
         printf("%s\n", getenv("PROMPT"));
+    }
+    else if (dollar != NULL)
+    {
+        char *token, *token2;
+        char* result = NULL;
+	    //to find index of $
+	    int dollar = indexOfWord(line, "$");
+        
+	    char* substr = substring(line, dollar, strlen(line));//gets MYVAR
+        char* substr2 = substring(line, dollar - 1, strlen(line)); //gets $MYVAR
+
+	    token = strtok(substr, " ");//holds MYVAR
+        token2 = strtok(substr2, " ");//holds $MYVAR
+        
+        char* substr3 = substring(line, 5, strlen(line));
+        result = replaceWord(substr3, token2, getenv(token));
+        printf("%s\n", result); //segmentation fault if print_var() is used so I had to use this
     }
     else
     {
         //for just echoing out what comes after echo
         char* substr2 = substring(line, 5, strlen(line));
         printf("%s\n",substr2);
-        //printf("Line does not contain echo.\n");
-        //token = strtok(NULL, " ");
-        //printf("%s", token);
     }
-
-    //my program is not able to create its own shell variables
 }
 
 //refactored code so as to not copy and paste same thing multiple times
