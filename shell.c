@@ -43,11 +43,13 @@ int main(int argc, char** argv)
         const char needle_cd[10] = "cd";
         const char needle_prompt[100] = "$PROMPT";
         const char needle_pipe[100] = "|";
-        char *cd, *prompt, *pipe_cmd;
+        const char needle_unset[100] = "unset";
+        char *cd, *prompt, *pipe_cmd, *unset;
 
         cd = strstr(line, needle_cd);
         prompt = strstr(line, needle_prompt);
         pipe_cmd = strstr(line, needle_pipe);
+        unset = strstr(line, needle_unset);
 
         //error checking
         int index_equal = indexOfWord(line, "=");
@@ -75,6 +77,22 @@ int main(int argc, char** argv)
                 outputShellVar(line);
             }
         }
+        
+        //unset
+        else if (unset != NULL)
+        {
+            char *token, *token_unset;
+
+            token = strtok(line, " "); //holds unset
+            token_unset = strtok(NULL, " "); //holds the var to unset
+
+            //unsetenv(token_unset);
+
+            if(unsetenv(token_unset) < 0)
+            {
+                printf("Unable to unset the variable.\n");
+            }
+        }
 
         //used to set a variable, did not work as intended
         else if (strstr(line, "=") != NULL)
@@ -88,7 +106,9 @@ int main(int argc, char** argv)
                 token3 = strtok(line, deli);
                 token4 = strtok(NULL, " ");
 
-                setenv(token3, token4, 1);
+                char* substr = substring(token3, 0, strlen(token3));
+
+                setenv(substr, token4, 1);
             }
             else
             {
@@ -255,10 +275,10 @@ char* Shell_Variable(char s[])
         {
             return getcwd(cwd_, sizeof(cwd));
         }
-       /* else
+        else
         {
-            return perror("Error obtaining current working directory.");
-        }*/
+            return "Error getting current directory.\n";
+        }
     }
     else if(strcmp(s, user.variable)==0)
     {
@@ -267,7 +287,7 @@ char* Shell_Variable(char s[])
     else if(strcmp(s, shell.variable)==0)
     {
        char* buf = (char*)malloc(sizeof(char)*(2025)); //since it was returning an address before using malloc i used malloc to allocate mem just for this, then i freed it ofc
-       ssize_t len = readlink("/proc/self/exe", buf, 2024); //whilst debugging i found that line 204 would only allocate 7 bytes so i manually set it to 2024 just in case here
+       ssize_t len = readlink("/proc/self/exe", buf, 2024); //whilst debugging i found that line above would only allocate 7 bytes so i manually set it to 2024 just in case here
        buf[len] = '\0';
        free(buf);
        setenv("SHELL", buf, 1);
@@ -286,10 +306,6 @@ char* Shell_Variable(char s[])
     else if(strcmp(s, prompt.variable) == 0)
     {
         return getenv("PROMPT");
-    }
-    else if (strcmp(s, "exit") == 0)
-    {
-        exit(1);
     }
 }
 
@@ -465,18 +481,9 @@ void outputShellVar(char line[])
     {
         print_var(line, needle_path, "PATH", 5);
     }
-    /*else if (dollar != NULL)
+    else if (prompt != NULL)
     {
-        print_var(line, needle_home, "HOME", 5);
-    }*/
-    else if (prompt != NULL && dollar != NULL)
-    {
-        //tried to print prompt, however my logic seems to be incorrect here
-        char* substr = substring(line, 5, strlen(line));
-        //printf("substr = %s\n", substr);
-        result = replaceWord(substr, needle_prompt, Shell_Variable("PROMPT"));
-        //printf("result: %s\n", result); 
-        printf("%s\n", getenv("PROMPT"));
+        print_var(line, needle_prompt, "PROMPT",5);
     }
     else if (dollar != NULL)
     {
@@ -492,8 +499,15 @@ void outputShellVar(char line[])
         token2 = strtok(substr2, " ");//holds $MYVAR
         
         char* substr3 = substring(line, 5, strlen(line));
-        result = replaceWord(substr3, token2, getenv(token));
-        printf("%s\n", result); //segmentation fault if print_var() is used so I had to use this
+        if(getenv(token) != NULL)
+        {
+            result = replaceWord(substr3, token2, getenv(token));
+            printf("%s\n", result); //segmentation fault if print_var() is used so I had to use this
+        }
+        else
+        {
+            printf("Variable does not exist.\n");
+        }
     }
     else
     {
