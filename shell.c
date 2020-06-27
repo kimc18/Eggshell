@@ -34,8 +34,7 @@ int main(int argc, char** argv)
 
     varInitializer();
 
-    char **command, **command2, **command3;
-    char *input;
+    char **cmd1, **cmd2, **cmd3;
     pid_t child_pid;
     int stat_loc;
 
@@ -50,8 +49,9 @@ int main(int argc, char** argv)
         prompt = strstr(line, needle_prompt);
         pipe_cmd = strstr(line, needle_pipe);
 
-        int p[2];
-        int pid, r;
+        //error checking
+        int index_equal = indexOfWord(line, "=");
+        int index_pipe = indexOfWord(line, "|");
 
         if(strstr(line, "echo") != NULL)
         {
@@ -75,25 +75,33 @@ int main(int argc, char** argv)
                 outputShellVar(line);
             }
         }
+
         //used to set a variable, did not work as intended
         else if (strstr(line, "=") != NULL)
         {
             const char deli[] = "=";
             char *token3, *token4;
 
-            token3 = strtok(line, deli);
-            //printf("String before equal sign: %s\n", token3);
-            token4 = strtok(NULL, " ");
-            //printf("String after equal sign: %s\n", token4);
+            //checking for location of equal sign, it shouldnt be the first char in the line inputted by user
+            if (index_equal > 1)
+            {
+                token3 = strtok(line, deli);
+                token4 = strtok(NULL, " ");
 
-            setenv(token3, token4, 1);
-            //putenv(line);
+                setenv(token3, token4, 1);
+            }
+            else
+            {
+                printf("Incorrect command, to set variable follow the example: VARIABLE=var.\n");
+            }
         }
+
         //exits out of program
         else if (strcmp(line, "exit") == 0)
         {
             exit(0);
         }
+
         //prints shell variables
         else if (strcmp(line, "showenv") == 0)
         {
@@ -105,17 +113,19 @@ int main(int argc, char** argv)
             printf("CWD=%s\n", Shell_Variable("CWD"));
             printf("TERMINAL=%s\n", Shell_Variable("TERMINAL"));
         }
+
         //changes directory
         else if (strcmp(line, "cd..") == 0)
         {
             chdir("..");
         }
+
         //checks if cd is present in string then takes substring after it and sets it as new directory
         else if (cd != NULL)
         {
             char* substr = substring(line, 3, strlen(line)); //should take what comes after cd
             if(chdir(substr) != 0)
-                perror("Unable to chnage directory");
+                perror("Unable to change directory");
         }
         //sets the prompts line
         else if (prompt != NULL)
@@ -125,43 +135,73 @@ int main(int argc, char** argv)
             char* substr_prompt_input = substring(substr_prompt_till_end, 7, strlen(substr_prompt_till_end));
             setenv("PROMPT", substr_prompt_input, 0);
         }
-        //non-working pipe operator
+        //this is only for a two command pipe
+        //checks
         else if (pipe_cmd != NULL)
         {
             const char deli[] = "|";
-            //char *token3, *token4;
+            char *token3, *token4;
 
-            command2 = string_to_array(strtok(line, deli));
-            //printf("String before equal sign: %s\n", token3);
-            command3 = string_to_array(strtok(NULL, " "));
-            //printf("String after equal sign: %s\n", token4);
+            token3 = strtok(line, deli);
+            token4 = strtok(NULL, "");
+
+            cmd2 = string_to_array(token3);
+            cmd3 = string_to_array(token4);
             
-            pipe(p);
+            int fd[2];
 
-            if(!fork())
+            //checking for location of pipe operator sign, it shouldnt be the first char in the line inputted by user
+            if (index_pipe > 1)
             {
-                close(1);
-                dup(p[1]);
-                close(p[0]);
-                execvp(command2[0], command2);
+                if(pipe(fd) == -1)
+	            {
+		            perror("Pipe failed.");
+		            exit(1);
+	            }
+
+	            if(fork() == 0)
+	            {
+		            close(STDOUT_FILENO);
+		            dup(fd[1]);
+		            close(fd[0]);
+		            close(fd[1]);
+
+		            execvp(cmd2[0], cmd2);
+		            perror("First command failed.");
+		            exit(1);
+	            }
+	            if(fork() == 0)
+	            {
+		            close(STDIN_FILENO);
+		            dup(fd[0]);
+		            close(fd[1]);
+		            close(fd[0]);
+
+		            execvp(cmd3[0], cmd3);
+		            perror("Second command failed");
+		            exit(1);
+	            }
             }
             else
             {
-                close(0);
-                dup(p[0]);
-                close(p[1]);
-                execvp(command3[0], command3);
+                printf("Incorrect command, to pipe commands follow the example: command|command.\n");
             }
+
+	        close(fd[0]);
+	        close(fd[1]);
+	        wait(0);
+	        wait(0);
+
         }
         //as eg. ls -a would be a stand alone command then it was set as the else in this statement, external commands can be processed here
         else
         {
-            command = string_to_array(line);
+            cmd1 = string_to_array(line);
             child_pid = fork();
 
             if(child_pid == 0)
             {
-                execvp(command[0], command);
+                execvp(cmd1[0], cmd1);
                 printf("The command entered is invalid.\n");
                 return;
             }
@@ -171,7 +211,9 @@ int main(int argc, char** argv)
             }
         }
 
-        free(command);
+        free(cmd3);
+        free(cmd2);
+        free(cmd1);
         linenoiseFree(line);
     }
    return(0);
@@ -264,42 +306,41 @@ char* substring(const char *source, int first_char, int last_char)
 }
 
 //used to replace words
-char *replaceWord(const char *s, const char *oldW, const char *newW)
+char *replaceWord(const char *line, const char *old, const char *new)
 {
     char *result;
     int i, count = 0;
-    int newWlen = strlen(newW);
-    int oldWlen = strlen(oldW);
+    int newLen = strlen(new);
+    int oldLen = strlen(old);
 
     //will count how many times the old word appears
-    for (i = 0; s[i] != '\0'; i++)
+    for (i = 0; line[i] != '\0'; i++)
     {
-        if(strstr(&s[i], oldW) == &s[i])
+        if(strstr(&line[i], old) == &line[i])
         {
             count++;
             
-            //will jump to index of old word
-            i += oldWlen - 1;
+            i += oldLen - 1;
         }
     }
 
-    //make new string with enough lenght
-    result = (char *)malloc(i + count * (newWlen - oldWlen) + 1);
+    //make new string with enough length
+    result = (char *)malloc(i + count * (newLen - oldLen) + 1);
 
     i = 0;
 
-    while(*s)
+    while(*line)
     {
         //will compare the substring with the result
-        if(strstr(s, oldW) == s)
+        if(strstr(line, old) == line)
         {
-            strcpy(&result[i], newW);
-            i += newWlen;
-            s += oldWlen;
+            strcpy(&result[i], new);
+            i += newLen;
+            line += oldLen;
         }
         else 
         {
-            result[i++] = *s++;
+            result[i++] = *line++;
         }
     }
 
@@ -385,15 +426,13 @@ void outputShellVar(char line[])
     const char needle_cwd[100] = "$CWD";
     const char needle_shell[100] = "$SHELL";
     const char needle_ter[100] = "$TERMINAL";
-    const char needle_echo[100] = "echo";
     const char needle_path[100] = "$PATH";
     const char needle_prompt[100] = "$PROMPT";
     const char needle_dollar[100] = "$";
     char *result = NULL;
-    char *user, *echo, *home, *cwd, *shell, *terminal, *path, *prompt, *dollar;
+    char *user, *home, *cwd, *shell, *terminal, *path, *prompt, *dollar;
 
     user = strstr(line, needle_user);
-    echo = strstr(line, needle_echo);
     home = strstr(line, needle_home);
     cwd = strstr(line, needle_cwd);
     shell = strstr(line, needle_shell);
