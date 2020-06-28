@@ -135,7 +135,7 @@ int main(int argc, char** argv)
         }
 
         //changes directory
-        else if (strcmp(line, "cd..") == 0)
+        else if (strcmp(line, "cd ..") == 0)
         {
             chdir("..");
         }
